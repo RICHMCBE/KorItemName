@@ -7,6 +7,21 @@ author: PresentKim
 description: Translate item name to Korean
 load: STARTUP
 
+commands:
+  koritemname:
+    description: Register korean item name
+    usage: /koritemname [key] [name]
+    permission: koritemname.command
+    aliases: [ kin, "한글아이템이름" ]
+
+permissions:
+  koritemname.command:
+    default: op
+
 softdepend:
   - Customies
+
+virions:
+  - SOF3/await-generator/master
+  - presentkim-pm/libasynform/1.2.1
 ...

@@ -21,6 +21,8 @@ declare(strict_types=1);
 
 namespace kim\present\koritemname;
 
+use kim\present\libasynform\CustomForm;
+use kim\present\libasynform\SimpleForm;
 use pocketmine\block\BaseCoral;
 use pocketmine\block\CoralBlock;
 use pocketmine\block\Dirt;
@@ -28,15 +30,20 @@ use pocketmine\block\MobHead;
 use pocketmine\block\Sponge;
 use pocketmine\block\utils\ColoredTrait;
 use pocketmine\block\utils\DirtType;
+use pocketmine\command\Command;
+use pocketmine\command\CommandSender;
 use pocketmine\item\Item;
 use pocketmine\item\Medicine;
 use pocketmine\item\TieredTool;
 use pocketmine\item\ToolTier;
 use pocketmine\network\mcpe\convert\TypeConverter;
+use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
+use SOFe\AwaitGenerator\Await;
 
 use function class_uses;
 use function in_array;
+use function is_array;
 use function method_exists;
 use function str_replace;
 use function strpos;
@@ -71,6 +78,15 @@ final class KorItemName extends PluginBase{
      */
     private static array $fallback = [];
 
+    /**
+     * List of items that failed to translate for debugging
+     *
+     * @var string[] [ $key => $info ]
+     */
+    private static array $failure = [];
+
+    private static bool $updated = false;
+
     protected function onLoad() : void{
         self::$instance = $this;
 
@@ -103,8 +119,77 @@ final class KorItemName extends PluginBase{
         }
     }
 
+    protected function onDisable() : void{
+        if(self::$updated){
+            yaml_emit_file($this->getDataFolder() . "translates.yml", self::$translates);
+        }
+    }
+
+    public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool{
+        if(!empty($args[0]) && !empty($args[1])){
+            $key = self::canonizeKey($args[0]);
+            self::$translates[$key] = $args[1];
+            self::$updated = true;
+            $sender->sendMessage("§l§6 • §r입력하신 한글 이름이 §7[$key §f=> §r§7$args[1]]§f로 등록되었습니다");
+            return true;
+        }
+
+        if(!($sender instanceof Player)){
+            return false;
+        }
+
+        Await::f2c(function() use ($sender) : \Generator{
+            if(empty(self::$failure)){
+                yield from $this->proccessRegister($sender);
+                return;
+            }
+
+            $form = SimpleForm::create("한글 아이템 이름 등록기");
+            $form->addButton("한글 이름 등록 하기");
+            $form->addButton("번역 실패 목록 보기");
+            $response = yield from $form->send($sender);
+
+            if($response === 0){
+                yield from $this->proccessRegister($sender);
+            }elseif($response === 1){
+                $form = SimpleForm::create("번역 실패 목록");
+                $form->setContent("번역에 실패한 아이템 목록입니다. 누르면 새로 등록할 수 있습니다.\n" . implode("\n", self::$failure));
+
+                $failureKeys = [];
+                foreach(self::$failure as $key => $info){
+                    $failureKeys[] = $key;
+                    $form->addButton($info);
+                }
+                $response = yield from $form->send($sender);
+                if($response === null || !isset($failureKeys[$response])){
+                    return;
+                }
+
+                yield from $this->proccessRegister($sender, $failureKeys[$response]);
+            }
+        });
+        return true;
+    }
+
+    private function proccessRegister(Player $player, string $defaultKey = "") : \Generator{
+        $form = CustomForm::create("한글 이름 등록하기");
+        $form->addInput("아이템 구분자", "example_item_name", $defaultKey);
+        $form->addInput("한글 이름", "예시 아이템 이름", "");
+        $response = yield from $form->send($player);
+
+        if(!is_array($response) || !isset($response[0], $response[1])){
+            $player->sendMessage("§l§6 • §r한글 이름 등록을 취소하였습니다");
+            return;
+        }
+
+        [$key, $vaule] = $response;
+        self::$translates[$key] = $vaule;
+        self::$updated = true;
+        $player->sendMessage("§l§6 • §r입력하신 한글 이름이 §7$key §f=> §r§7{$key}§f로 등록되었습니다");
+    }
+
     private static function getKeyFrom(Item $item) : string{
-        $key = strtolower(str_replace(" ", "_", $item->getVanillaName()));
+        $key = self::canonizeKey($item->getVanillaName());
 
         if($item instanceof TieredTool){
             return match ($tier = $item->getTier()) {
@@ -127,7 +212,7 @@ final class KorItemName extends PluginBase{
         }
 
         if($block instanceof MobHead){
-            return strtolower(str_replace(" ", "_", $block->getMobHeadType()->getDisplayName()));
+            return self::canonizeKey($block->getMobHeadType()->getDisplayName());
         }
 
         if($block instanceof Dirt){
@@ -146,6 +231,10 @@ final class KorItemName extends PluginBase{
         }
 
         return $key;
+    }
+
+    private static function canonizeKey(string $key) : string{
+        return strtolower(str_replace(" ", "_", $key));
     }
 
     public static function translate(Item $item) : string{
@@ -171,6 +260,7 @@ final class KorItemName extends PluginBase{
         }
         $info = "{$item->getVanillaName()} : $stringId ($key)";
         self::$instance->getLogger()->error("Failed to translate item : $info");
+        self::$failure[$netId] = $info;
 
         return $item->getName();
     }
