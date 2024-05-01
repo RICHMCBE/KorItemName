@@ -1,0 +1,12 @@
+---
+name: KorItemName
+main: kim\present\koritemname\KorItemName
+version: 0.0.1
+api: [ 5.0.0 ]
+author: PresentKim
+description: Translate item name to Korean
+load: STARTUP
+
+softdepend:
+  - Customies
+...
