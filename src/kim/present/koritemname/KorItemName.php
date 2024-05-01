@@ -60,27 +60,28 @@ final class KorItemName extends PluginBase{
     private static self $instance;
 
     /**
-     * Map of translates that mapped based on translate key
+     * Map of translations that mapped based on translation key
+     *  It load from plugin resource file
      *
      * @var string[] [ $key => $koreanName ]
      * @phpstan-var array<string, string>
      */
-    private static array $translates = [];
+    private static array $translations = [];
 
     /**
-     * Caches of translate key that mapped based on state id
+     * Caches of translation key that mapped based on state id
      *
-     * @var string[] [ $stateId => $key ]
+     * @var string[] [ $stateId => $koreanName ]
      * @phpstan-var array<int, string>
      */
-    private static array $keyByStateId = [];
+    private static array $stateIdToKey = [];
 
     /**
-     * Caches of translate key that mapped based on network id
+     * Caches of translation key that mapped based on network id
      *
      * @var string[] [ $netId => $key ]
      */
-    private static array $keyByNetId = [];
+    private static array $netIdToKey = [];
 
     /**
      * List of items that failed to translate for debugging
@@ -92,7 +93,7 @@ final class KorItemName extends PluginBase{
     private static bool $updated = false;
 
     /**
-     * Map of fallback translates that mapped based on item key
+     * Map of fallback translations that mapped based on item key
      * It load from plugin resource file
      *
      * @var string[] [ $key => $koreanName ]
@@ -103,17 +104,17 @@ final class KorItemName extends PluginBase{
     protected function onLoad() : void{
         self::$instance = $this;
 
-        $this->saveResource("translates.yml");
-        $this->fallback = yaml_parse_file($this->getResourcePath("translates.yml"));
-        self::$translates = $this->fallback;
-        foreach(yaml_parse_file($this->getDataFolder() . "translates.yml") as $key => $value){
-            self::$translates[strtolower($key)] = $value;
+        $this->saveResource("translations.yml");
+        $this->fallback = yaml_parse_file($this->getResourcePath("translations.yml"));
+        self::$translations = $this->fallback;
+        foreach(yaml_parse_file($this->getDataFolder() . "translations.yml") as $key => $value){
+            self::$translations[strtolower($key)] = $value;
         }
 
         foreach(TypeConverter::getInstance()->getItemTypeDictionary()->getEntries() as $entry){
-            if(isset(self::$translates[$key = $entry->getStringId()])
-                || isset(self::$translates[$key = substr($key, strpos($key, ":") + 1)])
-                || isset(self::$translates[$key = strtr($key, [
+            if(isset(self::$translations[$key = $entry->getStringId()])
+                || isset(self::$translations[$key = substr($key, strpos($key, ":") + 1)])
+                || isset(self::$translations[$key = strtr($key, [
                         "item." => "",
                         "lit_" => "",
                         "unpowered_" => "",
@@ -126,24 +127,24 @@ final class KorItemName extends PluginBase{
                         "double_slab" => "slab",
                         "double_stone_slab" => "stone_slab",
                     ])])
-                || isset(self::$translates[$key .= "_block"])
-                || isset(self::$translates[$key = substr($key, 0, -7)])
+                || isset(self::$translations[$key .= "_block"])
+                || isset(self::$translations[$key = substr($key, 0, -7)])
             ){
-                self::$keyByNetId[$entry->getNumericId()] = $key;
+                self::$netIdToKey[$entry->getNumericId()] = $key;
             }
         }
     }
 
     protected function onDisable() : void{
         if(self::$updated){
-            yaml_emit_file($this->getDataFolder() . "translates.yml", self::$translates, YAML_UTF8_ENCODING);
+            yaml_emit_file($this->getDataFolder() . "translations.yml", self::$translations, YAML_UTF8_ENCODING);
         }
     }
 
     public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool{
         if(!empty($args[0]) && !empty($args[1])){
             $key = self::canonizeKey($args[0]);
-            self::$translates[$key] = $args[1];
+            self::$translations[$key] = $args[1];
             self::$updated = true;
             $sender->sendMessage("§l§6 • §r입력하신 한글 이름이 §7[$key §f=> §r§7$args[1]]§f로 등록되었습니다");
             return true;
@@ -161,9 +162,9 @@ final class KorItemName extends PluginBase{
             $response = yield from $form->send($sender);
 
             if($response === 0){
-                yield from $this->proccessRegister($sender);
+                yield from $this->registerTranslation($sender);
             }elseif($response === 1){
-                self::$translates = array_merge(self::$translates, $this->fallback);
+                self::$translations = array_merge(self::$translations, $this->fallback);
                 self::$updated = true;
                 $sender->sendMessage("§l§6 • §r기본 한글 이름으로 복구되었습니다");
             }elseif($response === 2){
@@ -185,13 +186,13 @@ final class KorItemName extends PluginBase{
                     return;
                 }
 
-                yield from $this->proccessRegister($sender, $failureKeys[$response]);
+                yield from $this->registerTranslation($sender, $failureKeys[$response]);
             }
         });
         return true;
     }
 
-    private function proccessRegister(Player $player, string $defaultKey = "") : \Generator{
+    private function registerTranslation(Player $player, string $defaultKey = "") : \Generator{
         $form = CustomForm::create("한글 이름 등록하기");
         $form->addInput("아이템 구분자", "example_item_name", $defaultKey);
         $form->addInput("한글 이름", "예시 아이템 이름", "");
@@ -202,10 +203,10 @@ final class KorItemName extends PluginBase{
             return;
         }
 
-        [$key, $vaule] = $response;
-        self::$translates[$key] = $vaule;
+        [$translationKey, $koreanName] = $response;
+        self::$translations[$translationKey] = $koreanName;
         self::$updated = true;
-        $player->sendMessage("§l§6 • §r입력하신 한글 이름이 §7$key §f=> §r§7{$key}§f로 등록되었습니다");
+        $player->sendMessage("§l§6 • §r입력하신 한글 이름이 §7$translationKey §f=> §r§7{$translationKey}§f로 등록되었습니다");
     }
 
     private static function getKeyFrom(Item $item) : string{
@@ -259,18 +260,18 @@ final class KorItemName extends PluginBase{
 
     public static function translate(Item $item) : string{
         $stateId = $item->getStateId();
-        if(isset(self::$keyByStateId[$stateId])){
-            return self::$translates[self::$keyByStateId[$stateId]];
+        if(isset(self::$stateIdToKey[$stateId])){
+            return self::$translations[self::$stateIdToKey[$stateId]];
         }
 
         $key = self::getKeyFrom($item);
-        if(isset(self::$translates[$key])){
-            return self::$translates[self::$keyByStateId[$stateId] = $key];
+        if(isset(self::$translations[$key])){
+            return self::$translations[self::$stateIdToKey[$stateId] = $key];
         }
 
         $netId = $item->isNull() ? 0 : TypeConverter::getInstance()->getItemTranslator()->toNetworkId($item)[0];
-        if(isset(self::$keyByNetId[$netId])){
-            return self::$translates[self::$keyByStateId[$stateId] = self::$keyByNetId[$netId]];
+        if(isset(self::$netIdToKey[$netId])){
+            return self::$translations[self::$stateIdToKey[$stateId] = self::$netIdToKey[$netId]];
         }
 
         try{
