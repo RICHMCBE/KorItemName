@@ -121,7 +121,7 @@ final class KorItemName extends PluginBase{
 
     protected function onDisable() : void{
         if(self::$updated){
-            yaml_emit_file($this->getDataFolder() . "translates.yml", self::$translates);
+            yaml_emit_file($this->getDataFolder() . "translates.yml", self::$translates, YAML_UTF8_ENCODING);
         }
     }
 
