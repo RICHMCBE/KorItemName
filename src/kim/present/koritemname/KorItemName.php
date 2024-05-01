@@ -41,7 +41,9 @@ use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 use SOFe\AwaitGenerator\Await;
 
+use function array_merge;
 use function class_uses;
+use function implode;
 use function in_array;
 use function is_array;
 use function method_exists;
@@ -50,13 +52,15 @@ use function strpos;
 use function strtolower;
 use function strtr;
 use function substr;
+use function yaml_emit_file;
+use function yaml_parse_file;
 
 final class KorItemName extends PluginBase{
 
     private static self $instance;
 
     /**
-     * Map of translates that mapped based on item key
+     * Map of translates that mapped based on translate key
      *
      * @var string[] [ $key => $koreanName ]
      * @phpstan-var array<string, string>
@@ -64,19 +68,19 @@ final class KorItemName extends PluginBase{
     private static array $translates = [];
 
     /**
-     * Map of cache that mapped based on item state id
+     * Caches of translate key that mapped based on state id
      *
-     * @var string[] [ $stateId => $koreanName ]
+     * @var string[] [ $stateId => $key ]
      * @phpstan-var array<int, string>
      */
-    private static array $cache = [];
+    private static array $keyByStateId = [];
 
     /**
-     * Map of fallbacks that mapped based on network id
+     * Caches of translate key that mapped based on network id
      *
-     * @var string[] [ $netId => $koreanName ]
+     * @var string[] [ $netId => $key ]
      */
-    private static array $fallback = [];
+    private static array $keyByNetId = [];
 
     /**
      * List of items that failed to translate for debugging
@@ -87,10 +91,21 @@ final class KorItemName extends PluginBase{
 
     private static bool $updated = false;
 
+    /**
+     * Map of fallback translates that mapped based on item key
+     * It load from plugin resource file
+     *
+     * @var string[] [ $key => $koreanName ]
+     * @phpstan-var array<string, string>
+     */
+    private readonly array $fallback;
+
     protected function onLoad() : void{
         self::$instance = $this;
 
         $this->saveResource("translates.yml");
+        $this->fallback = yaml_parse_file($this->getResourcePath("translates.yml"));
+        self::$translates = $this->fallback;
         foreach(yaml_parse_file($this->getDataFolder() . "translates.yml") as $key => $value){
             self::$translates[strtolower($key)] = $value;
         }
@@ -114,7 +129,7 @@ final class KorItemName extends PluginBase{
                 || isset(self::$translates[$key .= "_block"])
                 || isset(self::$translates[$key = substr($key, 0, -7)])
             ){
-                self::$fallback[$entry->getNumericId()] = self::$translates[$key];
+                self::$keyByNetId[$entry->getNumericId()] = $key;
             }
         }
     }
@@ -139,19 +154,24 @@ final class KorItemName extends PluginBase{
         }
 
         Await::f2c(function() use ($sender) : \Generator{
-            if(empty(self::$failure)){
-                yield from $this->proccessRegister($sender);
-                return;
-            }
-
             $form = SimpleForm::create("한글 아이템 이름 등록기");
-            $form->addButton("한글 이름 등록 하기");
+            $form->addButton("한글 이름 등록하기");
+            $form->addButton("기본 한글 이름 복구");
             $form->addButton("번역 실패 목록 보기");
             $response = yield from $form->send($sender);
 
             if($response === 0){
                 yield from $this->proccessRegister($sender);
             }elseif($response === 1){
+                self::$translates = array_merge(self::$translates, $this->fallback);
+                self::$updated = true;
+                $sender->sendMessage("§l§6 • §r기본 한글 이름으로 복구되었습니다");
+            }elseif($response === 2){
+                if(empty(self::$failure)){
+                    $sender->sendMessage("§l§6 • §r번역에 실패한 아이템이 없습니다");
+                    return;
+                }
+
                 $form = SimpleForm::create("번역 실패 목록");
                 $form->setContent("번역에 실패한 아이템 목록입니다. 누르면 새로 등록할 수 있습니다.\n" . implode("\n", self::$failure));
 
@@ -239,18 +259,18 @@ final class KorItemName extends PluginBase{
 
     public static function translate(Item $item) : string{
         $stateId = $item->getStateId();
-        if(isset(self::$cache[$stateId])){
-            return self::$cache[$stateId];
+        if(isset(self::$keyByStateId[$stateId])){
+            return self::$translates[self::$keyByStateId[$stateId]];
         }
 
         $key = self::getKeyFrom($item);
         if(isset(self::$translates[$key])){
-            return self::$cache[$stateId] = self::$translates[$key];
+            return self::$translates[self::$keyByStateId[$stateId] = $key];
         }
 
         $netId = $item->isNull() ? 0 : TypeConverter::getInstance()->getItemTranslator()->toNetworkId($item)[0];
-        if(isset(self::$fallback[$netId])){
-            return self::$cache[$stateId] = self::$fallback[$netId];
+        if(isset(self::$keyByNetId[$netId])){
+            return self::$translates[self::$keyByStateId[$stateId] = self::$keyByNetId[$netId]];
         }
 
         try{
