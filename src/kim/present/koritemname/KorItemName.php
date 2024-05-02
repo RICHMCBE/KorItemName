@@ -69,12 +69,12 @@ final class KorItemName extends PluginBase{
     private static array $translations = [];
 
     /**
-     * Caches of translation key that mapped based on state id
+     * Caches of translated name that mapped based on state id
      *
      * @var string[] [ $stateId => $koreanName ]
      * @phpstan-var array<int, string>
      */
-    private static array $stateIdToKey = [];
+    private static array $stateIdToName = [];
 
     /**
      * Caches of translation key that mapped based on network id
@@ -145,6 +145,7 @@ final class KorItemName extends PluginBase{
         if(!empty($args[0]) && !empty($args[1])){
             $key = self::canonizeKey($args[0]);
             self::$translations[$key] = $args[1];
+            self::$stateIdToName = [];
             self::$updated = true;
             $sender->sendMessage("§l§6 • §r입력하신 한글 이름이 §7[$key §f=> §r§7$args[1]]§f로 등록되었습니다");
             return true;
@@ -165,6 +166,7 @@ final class KorItemName extends PluginBase{
                 yield from $this->registerTranslation($sender);
             }elseif($response === 1){
                 self::$translations = array_merge(self::$translations, $this->fallback);
+                self::$stateIdToName = [];
                 self::$updated = true;
                 $sender->sendMessage("§l§6 • §r기본 한글 이름으로 복구되었습니다");
             }elseif($response === 2){
@@ -205,6 +207,7 @@ final class KorItemName extends PluginBase{
 
         [$translationKey, $koreanName] = $response;
         self::$translations[$translationKey] = $koreanName;
+        self::$stateIdToName = [];
         self::$updated = true;
         $player->sendMessage("§l§6 • §r입력하신 한글 이름이 §7$translationKey §f=> §r§7{$translationKey}§f로 등록되었습니다");
     }
@@ -260,18 +263,18 @@ final class KorItemName extends PluginBase{
 
     public static function translate(Item $item) : string{
         $stateId = $item->getStateId();
-        if(isset(self::$stateIdToKey[$stateId])){
-            return self::$translations[self::$stateIdToKey[$stateId]];
+        if(isset(self::$stateIdToName[$stateId])){
+            return self::$stateIdToName[$stateId];
         }
 
         $key = self::getKeyFrom($item);
         if(isset(self::$translations[$key])){
-            return self::$translations[self::$stateIdToKey[$stateId] = $key];
+            return self::$stateIdToName[$stateId] = self::$translations[$key];
         }
 
         $netId = $item->isNull() ? 0 : TypeConverter::getInstance()->getItemTranslator()->toNetworkId($item)[0];
         if(isset(self::$netIdToKey[$netId])){
-            return self::$translations[self::$stateIdToKey[$stateId] = self::$netIdToKey[$netId]];
+            return self::$stateIdToName[$stateId] = self::$translations[self::$netIdToKey[$netId]];
         }
 
         try{
