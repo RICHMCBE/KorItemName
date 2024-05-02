@@ -45,6 +45,7 @@ use SOFe\AwaitGenerator\Await;
 use function array_change_key_case;
 use function array_merge;
 use function class_uses;
+use function file_get_contents;
 use function implode;
 use function in_array;
 use function is_array;
@@ -55,6 +56,7 @@ use function strtolower;
 use function strtr;
 use function substr;
 use function yaml_emit_file;
+use function yaml_parse;
 use function yaml_parse_file;
 
 use const YAML_UTF8_ENCODING;
@@ -123,7 +125,7 @@ final class KorItemName extends PluginBase{
         self::$instance = $this;
 
         $this->saveResource("translations.yml");
-        $this->fallback = yaml_parse_file($this->getResourcePath("translations.yml"));
+        $this->fallback = yaml_parse(file_get_contents($this->getResourcePath("translations.yml")));
 
         self::$translations = array_change_key_case(array_merge(
             $this->fallback,
