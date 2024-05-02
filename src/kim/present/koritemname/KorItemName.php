@@ -303,7 +303,19 @@ final class KorItemName extends PluginBase{
         }
     }
 
-    public static function translate(Item $item) : string{
+    /**
+     * Translate the item to Korean name
+     *
+     * @param Item $item The item to translate
+     * @param bool $must Whether to force translation even if the item has a custom name
+     *
+     * @return string
+     */
+    public static function translate(Item $item, bool $must = false) : string{
+        if(!$must && $item->hasCustomName()){
+            return $item->getCustomName();
+        }
+
         // Try to get from cache
         $stateId = $item->getStateId();
         if(isset(self::$stateIdToName[$stateId])){
