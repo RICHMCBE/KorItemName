@@ -57,6 +57,20 @@ use function yaml_parse_file;
 
 final class KorItemName extends PluginBase{
 
+    private const STRING_ID_REPLACEMENTS = [
+        "item." => "",
+        "lit_" => "",
+        "unpowered_" => "",
+        "powered_" => "",
+        "wall_" => "",
+        "standing_" => "",
+        "glazed_" => "",
+        "normal_" => "",
+        "_inverted" => "",
+        "double_slab" => "slab",
+        "double_stone_slab" => "stone_slab",
+    ];
+
     private static self $instance;
 
     /**
@@ -111,28 +125,7 @@ final class KorItemName extends PluginBase{
             self::$translations[strtolower($key)] = $value;
         }
 
-        foreach(TypeConverter::getInstance()->getItemTypeDictionary()->getEntries() as $entry){
-            if(isset(self::$translations[$key = $entry->getStringId()])
-                || isset(self::$translations[$key = substr($key, strpos($key, ":") + 1)])
-                || isset(self::$translations[$key = strtr($key, [
-                        "item." => "",
-                        "lit_" => "",
-                        "unpowered_" => "",
-                        "powered_" => "",
-                        "wall_" => "",
-                        "standing_" => "",
-                        "glazed_" => "",
-                        "normal_" => "",
-                        "_inverted" => "",
-                        "double_slab" => "slab",
-                        "double_stone_slab" => "stone_slab",
-                    ])])
-                || isset(self::$translations[$key .= "_block"])
-                || isset(self::$translations[$key = substr($key, 0, -7)])
-            ){
-                self::$netIdToKey[$entry->getNumericId()] = $key;
-            }
-        }
+        self::loadItemTypeDictionary();
     }
 
     protected function onDisable() : void{
@@ -212,7 +205,7 @@ final class KorItemName extends PluginBase{
         $player->sendMessage("§l§6 • §r입력하신 한글 이름이 §7$translationKey §f=> §r§7{$translationKey}§f로 등록되었습니다");
     }
 
-    private static function getKeyFrom(Item $item) : string{
+    private static function getKeyFromItem(Item $item) : string{
         $key = self::canonizeKey($item->getVanillaName());
 
         if($item instanceof TieredTool){
@@ -257,8 +250,47 @@ final class KorItemName extends PluginBase{
         return $key;
     }
 
+    private static function getKeyByStringId(string $stringId) : ?string{
+        if(
+            // Try full string id
+            isset(self::$translations[$key = $stringId])
+
+            // Try remove namespace
+            || isset(self::$translations[$key = substr($key, strpos($key, ":") + 1)])
+
+            // Try replace useless parts
+            || isset(self::$translations[$key = strtr($key, self::STRING_ID_REPLACEMENTS)])
+
+            // Try add suffix "_block"
+            || isset(self::$translations[$key .= "_block"])
+
+            // Try remove last 1 character (The reason why it is 7 instead of 1 is to remove "_block")
+            || isset(self::$translations[$key = substr($key, 0, -7)])
+        ){
+            return $key;
+        }
+
+        return null;
+    }
+
     private static function canonizeKey(string $key) : string{
         return strtolower(str_replace(" ", "_", $key));
+    }
+
+    private static function loadItemTypeDictionary() : void{
+        foreach(TypeConverter::getInstance()->getItemTypeDictionary()->getEntries() as $entry){
+            $netId = $entry->getNumericId();
+            if(isset(self::$netIdToKey[$netId])){
+                continue;
+            }
+
+            $key = self::getKeyByStringId($entry->getStringId());
+            if($key === null){
+                continue;
+            }
+
+            self::$netIdToKey[$entry->getNumericId()] = $key;
+        }
     }
 
     public static function translate(Item $item) : string{
@@ -267,7 +299,7 @@ final class KorItemName extends PluginBase{
             return self::$stateIdToName[$stateId];
         }
 
-        $key = self::getKeyFrom($item);
+        $key = self::getKeyFromItem($item);
         if(isset(self::$translations[$key])){
             return self::$stateIdToName[$stateId] = self::$translations[$key];
         }
