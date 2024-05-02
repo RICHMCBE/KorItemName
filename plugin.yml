@@ -1,7 +1,7 @@
 ---
 name: KorItemName
 main: kim\present\koritemname\KorItemName
-version: 1.1.0
+version: 1.1.1
 api: [ 5.0.0 ]
 author: PresentKim
 description: Translate item name to Korean
