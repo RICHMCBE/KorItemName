@@ -304,30 +304,41 @@ final class KorItemName extends PluginBase{
     }
 
     public static function translate(Item $item) : string{
+        // Try to get from cache
         $stateId = $item->getStateId();
         if(isset(self::$stateIdToName[$stateId])){
             return self::$stateIdToName[$stateId];
         }
 
+        // Try to get by item key
         $key = self::getKeyFromItem($item);
         if(isset(self::$translations[$key])){
             return self::$stateIdToName[$stateId] = self::$translations[$key];
         }
 
+        // Try to get by network id
         $netId = $item->isNull() ? 0 : TypeConverter::getInstance()->getItemTranslator()->toNetworkId($item)[0];
         if(isset(self::$netIdToKey[$netId])){
             return self::$stateIdToName[$stateId] = self::$translations[self::$netIdToKey[$netId]];
         }
 
         try{
+            // Try to get by string id
             $stringId = TypeConverter::getInstance()->getItemTypeDictionary()->fromIntId($netId);
+            $keyByStringId = self::getKeyByStringId($stringId);
+            if($keyByStringId !== null){
+                return self::$stateIdToName[$stateId] = self::$translations[$keyByStringId];
+            }
         }catch(\InvalidArgumentException){
             $stringId = "unknown_$netId";
         }
+
+        // Log failure
         $info = "{$item->getVanillaName()} : $stringId ($key)";
         self::$instance->getLogger()->error("Failed to translate item : $info");
         self::$failure[$netId] = $info;
 
+        // Return default name
         return $item->getName();
     }
 }
