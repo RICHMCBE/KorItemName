@@ -41,6 +41,7 @@ use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
 use SOFe\AwaitGenerator\Await;
 
+use function array_change_key_case;
 use function array_merge;
 use function class_uses;
 use function implode;
@@ -54,6 +55,8 @@ use function strtr;
 use function substr;
 use function yaml_emit_file;
 use function yaml_parse_file;
+
+use const YAML_UTF8_ENCODING;
 
 final class KorItemName extends PluginBase{
 
@@ -120,10 +123,11 @@ final class KorItemName extends PluginBase{
 
         $this->saveResource("translations.yml");
         $this->fallback = yaml_parse_file($this->getResourcePath("translations.yml"));
-        self::$translations = $this->fallback;
-        foreach(yaml_parse_file($this->getDataFolder() . "translations.yml") as $key => $value){
-            self::$translations[strtolower($key)] = $value;
-        }
+
+        self::$translations = array_change_key_case(array_merge(
+            $this->fallback,
+            yaml_parse_file($this->getDataFolder() . "translations.yml")
+        ));
 
         self::loadItemTypeDictionary();
     }
