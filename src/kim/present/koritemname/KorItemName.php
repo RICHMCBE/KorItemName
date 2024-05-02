@@ -39,6 +39,7 @@ use pocketmine\item\ToolTier;
 use pocketmine\network\mcpe\convert\TypeConverter;
 use pocketmine\player\Player;
 use pocketmine\plugin\PluginBase;
+use pocketmine\scheduler\ClosureTask;
 use SOFe\AwaitGenerator\Await;
 
 use function array_change_key_case;
@@ -130,6 +131,11 @@ final class KorItemName extends PluginBase{
         ));
 
         self::loadItemTypeDictionary();
+        $this->getScheduler()->scheduleDelayedTask(new ClosureTask(static function() : void{
+            // Scheduled for 0-tick delay, runs as soon as the server starts
+            // for run after another plugin is loaded
+            self::loadItemTypeDictionary();
+        }), 0);
     }
 
     protected function onDisable() : void{
