@@ -24,12 +24,17 @@ namespace kim\present\koritemname;
 use kim\present\libasynform\CustomForm;
 use kim\present\libasynform\SimpleForm;
 use pocketmine\block\BaseCoral;
+use pocketmine\block\BlockTypeIds;
+use pocketmine\block\Copper;
+use pocketmine\block\CopperSlab;
+use pocketmine\block\CopperStairs;
 use pocketmine\block\CoralBlock;
 use pocketmine\block\Dirt;
 use pocketmine\block\Froglight;
 use pocketmine\block\MobHead;
 use pocketmine\block\Sponge;
 use pocketmine\block\utils\ColoredTrait;
+use pocketmine\block\utils\CopperOxidation;
 use pocketmine\block\utils\DirtType;
 use pocketmine\block\utils\FroglightType;
 use pocketmine\block\Wood;
@@ -269,6 +274,27 @@ final class KorItemName extends PluginBase{
                 $key = 'stripped_' . $key;
             }
             return $key;
+        }
+
+        if($block instanceof Copper || $block instanceof CopperSlab || $block instanceof CopperStairs){
+            if($block->getStateId() === BlockTypeIds::CUT_COPPER){
+                $key = 'cut_copper';
+            }
+
+            if($block->isWaxed()){
+                $prefix = 'waxed_';
+            }else{
+                $prefix = '';
+            }
+
+            $prefix .= match ($block->getOxidation()){
+                CopperOxidation::EXPOSED => 'exposed_',
+                CopperOxidation::WEATHERED => 'weathered_',
+                CopperOxidation::OXIDIZED => 'oxidized_',
+                default => ''
+            };
+
+            return $prefix . $key;
         }
 
         $classUses = class_uses($block);
