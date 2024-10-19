@@ -1358,7 +1358,7 @@ sticky_piston_arm_collision: minecraft:sticky_piston_arm_collision
 stone: 돌
 stone_axe: 돌도끼
 stone_block_slab: 돌판
-stone_brick_slab: 석재 판
+normal_stone_slab: 석재 판
 stone_brick_stairs: 석재 벽돌 계단
 stone_brick_wall: 석재 벽돌 벽
 stone_button: 돌 버튼
@@ -1368,7 +1368,7 @@ stone_pressure_plate: 돌 감압판
 stone_shovel: 돌삽
 stone_stairs: 석재 계단
 stone_sword: 돌검
-stonebrick: 석재 벽돌
+stone_bricks: 석재 벽돌
 stonecutter: 돌 절단기
 stonecutter_block: 돌 절단기
 stray_spawn_egg: 스트레이 생성

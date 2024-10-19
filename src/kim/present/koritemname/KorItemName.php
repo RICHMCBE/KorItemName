@@ -26,10 +26,13 @@ use kim\present\libasynform\SimpleForm;
 use pocketmine\block\BaseCoral;
 use pocketmine\block\CoralBlock;
 use pocketmine\block\Dirt;
+use pocketmine\block\Froglight;
 use pocketmine\block\MobHead;
 use pocketmine\block\Sponge;
 use pocketmine\block\utils\ColoredTrait;
 use pocketmine\block\utils\DirtType;
+use pocketmine\block\utils\FroglightType;
+use pocketmine\block\Wood;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\item\Item;
@@ -250,6 +253,22 @@ final class KorItemName extends PluginBase{
                 DirtType::COARSE => "coarse_dirt",
                 DirtType::ROOTED => "dirt_with_roots"
             };
+        }
+
+        if($block instanceof Froglight){
+            return match ($block->getFroglightType()){
+                FroglightType::OCHRE => "ochre_froglight",
+                FroglightType::PEARLESCENT => "pearlescent_froglight",
+                FroglightType::VERDANT => "verdant_froglight",
+                default => 'froglight'
+            };
+        }
+
+        if($block instanceof Wood){
+            if($block->isStripped()){
+                $key = 'stripped_' . $key;
+            }
+            return $key;
         }
 
         $classUses = class_uses($block);
