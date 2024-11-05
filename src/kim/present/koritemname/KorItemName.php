@@ -381,6 +381,10 @@ final class KorItemName extends PluginBase{
             return self::$stateIdToName[$stateId] = self::$translations[self::$netIdToKey[$netId]];
         }
 
+        if(!$must & preg_match("/[^0-9a-zA-Z :_\-\[\]()]+/", $item->getVanillaName())){
+            return self::$stateIdToName[$stateId] = $item->getVanillaName();
+        }
+
         try{
             // Try to get by string id
             $stringId = TypeConverter::getInstance()->getItemTypeDictionary()->fromIntId($netId);
